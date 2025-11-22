@@ -1,0 +1,60 @@
+Option Explicit
+
+' Requires reference to Microsoft ActiveX Data Objects x.x Library (Must actvate in VBA editor)
+
+Public Sub SQLWriteTable()
+    On Error GoTo CleanFail
+    
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Sheets("TeamDataTable") ' Change sheet name if needed
+    
+    Dim lastRow As Long, lastCol As Long
+    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
+    
+    Dim rng As Range
+    Set rng = ws.Range(ws.Cells(1, 1), ws.Cells(lastRow, lastCol))
+    
+    Dim conn As ADODB.Connection
+    Dim cmd As ADODB.Command
+    Set conn = New ADODB.Connection
+    Set cmd = New ADODB.Command
+    
+    ' Connect to SQL Server "Task_Data" using BAU Data database
+    conn.Open "Provider=SQLOLEDB;Data Source=Task_Data;Initial Catalog=[BAU Data];Integrated Security=SSPI;"
+    
+    ' Example: clear target table first (optional)
+    conn.Execute "TRUNCATE TABLE TeamDataTable"
+    
+    Dim r As Long, c As Long, sql As String, val As String
+    
+    For r = 2 To lastRow ' skip headers
+        sql = "INSERT INTO TeamDataTable ("
+        ' Columns
+        For c = 1 To lastCol
+            sql = sql & ws.Cells(1, c).Value
+            If c < lastCol Then sql = sql & ", " Else sql = sql & ") VALUES ("
+        Next c
+        ' Values
+        For c = 1 To lastCol
+            val = ws.Cells(r, c).Value
+            ' Wrap text in single quotes, escape single quotes inside
+            val = Replace(CStr(val), "'", "''")
+            sql = sql & "'" & val & "'"
+            If c < lastCol Then sql = sql & ", " Else sql = sql & ")"
+        Next c
+        conn.Execute sql
+    Next r
+    
+    conn.Close
+    Set conn = Nothing
+    Set cmd = Nothing
+    
+    Exit Sub
+
+CleanFail:
+    MsgBox "Error writing to SQL Server: " & Err.Description
+    If Not conn Is Nothing Then
+        If conn.State = adStateOpen Then conn.Close
+    End If
+End Sub
