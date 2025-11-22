@@ -1,0 +1,82 @@
+Option Explicit
+
+Private Const REFRESH_SCHEDULE As String = "15:00:00"
+Private Const INFO_SHEET As String = "Information"
+Private Const STATUS_CELL As String = "H1"
+Private Const LAST_REFRESH_CELL As String = "H2"
+
+Public Sub ScheduleDailyRefresh()
+    On Error GoTo SafeExit
+    
+    Dim refreshTime As Date
+    refreshTime = TimeValue(REFRESH_SCHEDULE)
+    
+    ' Cancel any previous scheduled procedure
+    On Error Resume Next
+    Application.OnTime EarliestTime:=refreshTime, Procedure:="RefreshAtTime", Schedule:=False
+    On Error GoTo SafeExit
+    
+    ' Schedule the procedure
+    Application.OnTime EarliestTime:=refreshTime, Procedure:="RefreshAtTime", Schedule:=True
+    
+    ' Check if refresh is needed today
+    Dim ws As Worksheet
+    Dim lastRefresh As Variant
+    Set ws = ThisWorkbook.Sheets(INFO_SHEET)
+    lastRefresh = ws.Range(LAST_REFRESH_CELL).Value
+    
+    If Not IsDate(lastRefresh) Then lastRefresh = 0
+    
+    If (lastRefresh = 0 And Time >= refreshTime) _
+        Or (Date > lastRefresh And Time > refreshTime) Then
+        Call RefreshAtTime
+    End If
+
+SafeExit:
+    Exit Sub
+End Sub
+
+Public Sub RefreshAtTime()
+    On Error GoTo CleanFail
+    
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Sheets(INFO_SHEET)
+    
+    Dim statusCell As Range
+    Set statusCell = ws.Range(STATUS_CELL)
+    
+    ' Wait if already running
+    Dim tStart As Single
+    tStart = Timer
+    Do While statusCell.Value = "Running"
+        DoEvents
+        If Timer - tStart > 20 Then GoTo CleanFail
+    Loop
+    
+    statusCell.Value = "Running"
+    ws.Parent.Save
+    
+    ' Refresh all tables
+    On Error Resume Next
+    ThisWorkbook.RefreshAll
+    On Error GoTo CleanFail
+    
+    ' Wait 10 seconds to allow data to load
+    Application.Wait (Now + TimeValue("0:00:10"))
+    
+    ' Write refreshed data to SQL Server
+    Call SQLWriteTable
+    
+    ' Wait another 10 seconds to ensure write completion
+    Application.Wait (Now + TimeValue("0:00:10"))
+    
+    ' Reset status and log last refresh date
+    statusCell.Value = ""
+    ws.Range(LAST_REFRESH_CELL).Value = Date
+    ws.Parent.Save
+    Exit Sub
+
+CleanFail:
+    statusCell.Value = "Error"
+    MsgBox "Refresh failed!"
+End Sub
