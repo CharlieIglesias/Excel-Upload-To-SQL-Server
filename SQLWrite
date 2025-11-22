@@ -22,7 +22,7 @@ Public Sub SQLWriteTable()
     
     ' Connect to SQL Server "Task_Data" using ExcelUser login
     conn.ConnectionString = "Provider=SQLOLEDB;Data Source=Task_Data;Initial Catalog=Task_Data;" & _
-                            "User ID=ExcelUser;Password=StrongPasswordHere;"
+                            "User ID=ExcelUser;Password=Password1;"
     conn.Open
     
     ' Example: clear target table first (optional)
