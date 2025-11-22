@@ -20,8 +20,10 @@ Public Sub SQLWriteTable()
     Set conn = New ADODB.Connection
     Set cmd = New ADODB.Command
     
-    ' Connect to SQL Server "Task_Data" using BAU Data database
-    conn.Open "Provider=SQLOLEDB;Data Source=Task_Data;Initial Catalog=[BAU Data];Integrated Security=SSPI;"
+    ' Connect to SQL Server "Task_Data" using ExcelUser login
+    conn.ConnectionString = "Provider=SQLOLEDB;Data Source=Task_Data;Initial Catalog=Task_Data;" & _
+                            "User ID=ExcelUser;Password=StrongPasswordHere;"
+    conn.Open
     
     ' Example: clear target table first (optional)
     conn.Execute "TRUNCATE TABLE TeamDataTable"
